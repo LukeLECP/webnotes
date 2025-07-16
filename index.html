@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes</title>
+    <!-- Tailwind CSS (Embedded for Offline Use) -->
+    <style>
+        /* Universal box-sizing for consistent layout */
+        *, ::before, ::after {
+            box-sizing: border-box;
+            border-width: 0;
+            border-style: solid;
+            border-color: #e5e7eb;
+        }
+        :root {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Base styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            line-height: inherit;
+            /* Default Light Mode Colors */
+            --bg-gradient-from: #eff6ff;
+            --bg-gradient-to: #e0e7ff;
+            --main-bg: #fff;
+            --text-color: #1f2937;
+            --border-color: #d1d5db;
+            --input-bg: #fff;
+            --input-text: #000000; /* Changed to black for light mode */
+            --placeholder-text: #6b7280;
+            --button-bg-blue: #2563eb;
+            --button-hover-blue: #1d4ed8;
+            --message-box-info-bg: #dbeafe;
+            --message-box-info-text: #1d4ed8;
+            --message-box-error-bg: #fee2e2;
+            --message-box-error-text: #b91c1c;
+            --note-bg: #eff6ff;
+            --note-border: #bfdbfe;
+            --note-text: #1f2937;
+            --note-timestamp-text: #6b7280;
+            --delete-button-bg: #ef4444;
+            --delete-button-hover: #dc2626;
+            --email-button-bg: #4CAF50; /* Green for email */
+            --email-button-hover: #45a049;
+            --edit-button-bg: #FFC107; /* Amber for edit */
+            --edit-button-hover: #FFA000;
+            --pin-button-bg: #60a5fa; /* Blue for pin */
+            --pin-button-hover: #3b82f6;
+            --pinned-note-bg: #fefce8; /* Light yellow for pinned note background */
+            --pinned-note-border: #fde68a; /* Yellow border for pinned note */
+        }
+
+        /* Dark mode specific styles */
+        body.dark-mode {
+            --bg-gradient-from: #1a202c; /* dark blue-gray */
+            --bg-gradient-to: #2d3748;   /* slightly lighter dark blue-gray */
+            --main-bg: #2d3748;         /* main card background */
+            --text-color: #e2e8f0;      /* light gray text */
+            --border-color: #4a5568;    /* darker border */
+            --input-bg: #374151;        /* Dark grey background for inputs in dark mode */
+            --input-text: #FFFFFF;      /* White text for inputs in dark mode */
+            --placeholder-text: #a0aec0; /* placeholder text */
+            --button-bg-blue: #4299e1;  /* blue button in dark mode */
+            --button-hover-blue: #3182ce;
+            --message-box-info-bg: #2b6cb0; /* info message box */
+            --message-box-info-text: #e0f2f7;
+            --message-box-error-bg: #c53030; /* error message box */
+            --message-box-error-text: #fed7d7;
+            --note-bg: #4a5568;         /* note background */
+            --note-border: #6b7280;     /* note border */
+            --note-text: #e2e8f0;       /* note text */
+            --note-timestamp-text: #a0aec0; /* note timestamp text */
+            --delete-button-bg: #e53e3e; /* delete button in dark mode */
+            --delete-button-hover: #c53030;
+            --email-button-bg: #68d391; /* Green for email in dark mode */
+            --email-button-hover: #48bb78;
+            --edit-button-bg: #FDD835; /* Amber for edit in dark mode */
+            --edit-button-hover: #FBC02D;
+            --pin-button-bg: #60a5fa; /* Blue for pin in dark mode */
+            --pin-button-hover: #3b82f6;
+            --pinned-note-bg: #4a412a; /* Darker yellow for pinned note background in dark mode */
+            --pinned-note-border: #a07d2d; /* Darker yellow border for pinned note in dark mode */
+        }
+
+        /* Apply CSS variables */
+        .bg-gradient-to-br { background-image: linear-gradient(to bottom right, var(--bg-gradient-from), var(--bg-gradient-to)); }
+        .bg-white { background-color: var(--main-bg); }
+        .text-gray-800 { color: var(--text-color); }
+        .border-gray-300 { border-color: var(--border-color); }
+        /* Apply input-text variable to elements with text-gray-700 class */
+        .text-gray-700 { color: var(--input-text); }
+        /* Apply input-bg variable to textarea and input[type="text"] specifically */
+        textarea.text-gray-700, input[type="text"].text-gray-700 {
+            background-color: var(--input-bg);
+        }
+        .text-gray-600 { color: var(--placeholder-text); } /* For keywords and general gray text */
+        .text-gray-500 { color: var(--note-timestamp-text); } /* For timestamp */
+        .dark-mode-icon-color { color: var(--text-color); } /* For dark mode icon */
+
+
+        /* Buttons */
+        .bg-blue-600 { background-color: var(--button-bg-blue); }
+        .hover\:bg-blue-700:hover { background-color: var(--button-hover-blue); }
+        .focus\:ring-blue-500:focus { --tw-ring-color: var(--button-bg-blue); } /* Adjust ring color */
+
+        /* Message Box */
+        /* Updated for overlay functionality */
+        #message-box {
+            position: fixed; /* Fixed position relative to the viewport */
+            bottom: 1rem; /* Position at the bottom */
+            left: 1rem;   /* Position at the left */
+            transform: none; /* Remove centering transform */
+            z-index: 1000; /* Ensure it's on top of other content */
+            width: 80%; /* Adjust width as needed */
+            max-width: 400px; /* Max width for larger screens */
+            padding: 1.5rem; /* More padding for better appearance */
+            border-radius: 0.75rem; /* Rounded corners */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); /* Soft shadow */
+            background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white background (more transparent) */
+            transition: opacity 0.3s ease-in-out; /* Smooth fade in/out */
+        }
+        body.dark-mode #message-box {
+            background-color: rgba(45, 55, 72, 0.8); /* Semi-transparent dark background in dark mode (more transparent) */
+        }
+
+        .bg-blue-100 { background-color: var(--message-box-info-bg); }
+        .text-blue-700 { color: var(--message-box-info-text); }
+        .bg-red-100 { background-color: var(--message-box-error-bg); }
+        .text-red-700 { color: var(--message-box-error-text); }
+
+        /* Notes Display */
+        .bg-blue-50 { background-color: var(--note-bg); }
+        .border-blue-200 { border-color: var(--note-border); }
+        .pinned-note { /* Class for pinned notes */
+            background-color: var(--pinned-note-bg);
+            border-color: var(--pinned-note-border);
+        }
+
+        /* Delete Button */
+        .bg-red-500 { background-color: var(--delete-button-bg); }
+        .hover\:bg-red-600:hover { background-color: var(--delete-button-hover); }
+        .focus\:ring-red-400:focus { --tw-ring-color: var(--delete-button-bg); }
+
+        /* Email Button */
+        .bg-green-500 { background-color: var(--email-button-bg); }
+        .hover\:bg-green-600:hover { background-color: var(--email-button-hover); }
+        .focus\:ring-green-400:focus { --tw-ring-color: var(--email-button-bg); }
+
+        /* Edit Button */
+        .bg-amber-500 { background-color: var(--edit-button-bg); }
+        .hover\:bg-amber-600:hover { background-color: var(--edit-button-hover); }
+        .focus\:ring-amber-400:focus { --tw-ring-color: var(--edit-button-bg); }
+
+        /* Pin Button */
+        .bg-blue-400 { background-color: var(--pin-button-bg); }
+        .hover\:bg-blue-500:hover { background-color: var(--pin-button-hover); }
+        .focus\:ring-blue-300:focus { --tw-ring-color: var(--pin-button-bg); }
+
+
+        /* Other Tailwind classes */
+        .min-h-screen { min-height: 100vh; }
+        .p-4 { padding: 1rem; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .w-full { width: 100%; }
+        .max-w-3xl { max-width: 48rem; }
+        .rounded-xl { border-radius: 0.75rem; }
+        .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .p-6 { padding: 1.5rem; }
+        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+        .font-extrabold { font-weight: 800; }
+        .text-center { text-align: center; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .hidden { display: none; }
+        .p-3 { padding: 0.75rem; }
+        .rounded-lg { border-radius: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mb-8 { margin-bottom: 2rem; }
+        .border { border-width: 1px; }
+        .focus\:ring-2:focus { box-shadow: var(--tw-ring-shadow); }
+        .focus\:border-transparent:focus { border-color: transparent; }
+        .transition { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+        .duration-200 { transition-duration: 200ms; }
+        .ease-in-out { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+        .resize-y { resize: vertical; }
+        .min-h-\[120px\] { min-height: 120px; }
+        .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .gap-3 { gap: 0.75rem; }
+        .flex-1 { flex: 1 1 0%; }
+        .font-bold { font-weight: 700; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+        .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .duration-300 { transition-duration: 300ms; }
+        .transform { transform: var(--tw-transform); }
+        .hover\:scale-105:hover { --tw-scale-x: 1.05; --tw-scale-y: 1.05; transform: var(--tw-transform); }
+        .focus\:outline-none:focus { outline: 2px solid transparent; outline-offset: 2px; }
+        .focus\:ring-opacity-75:focus { --tw-ring-opacity: 0.75; }
+        .disabled\:opacity-50:disabled { opacity: 0.5; }
+        .disabled\:cursor-not-allowed:disabled { cursor: not-allowed; }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .font-semibold { font-weight: 600; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .whitespace-pre-wrap { white-space: pre-wrap; }
+        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+        .mt-6 { margin-top: 1.5rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .border-b-2 { border-bottom-width: 2px; }
+        .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+        .space-y-4 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0; margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse))); margin-bottom: calc(1rem * var(--tw-space-y-reverse)); }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .text-right { text-align: right; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+
+        /* Added for positioning context */
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .top-2 { top: 0.5rem; }
+        .right-2 { right: 0.5rem; }
+        /* Removed fixed right positions for individual buttons */
+
+
+        /* Explicitly set text color for save button text and spinner */
+        #save-note-btn-text, #save-note-loading-spinner {
+            color: white;
+        }
+
+        /* Dark Mode Switch Specific Styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(16px);
+        }
+
+        /* Missing Tailwind padding and positioning definitions (ensured these are present) */
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .pb-2 { padding-bottom: 0.5rem; }
+        .pr-2 { padding-right: 0.5rem; }
+        .flex-grow { flex-grow: 1; }
+        .top-4 { top: 1rem; } /* Added definition */
+        .right-4 { right: 1rem; } /* Added definition */
+        .top-6 { top: 1.5rem; } /* Added definition */
+        .right-6 { right: 1.5rem; } /* Added definition */
+        .justify-between { justify-content: space-between; } /* Added definition */
+        .gap-1 { gap: 0.25rem; } /* Added for small gap between buttons */
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center">
+    <div class="w-full max-w-3xl bg-white rounded-xl shadow-lg p-6 sm:p-8 relative"> <!-- Added relative here for absolute positioning -->
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-center text-gray-800 mb-6">
+            Notes
+        </h1>
+        <!-- Dark Mode Switch with Moon Icon - positioned absolutely to the right -->
+        <div class="absolute top-6 right-6 flex items-center space-x-2">
+            <span class="dark-mode-icon-color text-xl pr-2">&#127769;</span> <!-- Moon symbol with padding -->
+            <label class="switch">
+                <input type="checkbox" id="darkModeToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <!-- Message Box -->
+        <div id="message-box" class="hidden p-3 rounded-lg text-center" role="alert"></div>
+
+        <!-- Note Input Section -->
+        <div class="mb-8">
+            <textarea
+                id="note-content"
+                class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200 ease-in-out text-gray-700 resize-y min-h-[120px] shadow-sm"
+                placeholder="Write your note here..."
+                rows="5"
+            ></textarea>
+            <!-- Keyword Input Field -->
+            <input
+                type="text"
+                id="note-keywords"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200 ease-in-out text-gray-700 shadow-sm mt-3"
+                placeholder="Add comma-separated keywords (e.g., work, idea, urgent)"
+            />
+            <div class="flex flex-col sm:flex-row gap-3 mt-4">
+                <button
+                    id="save-note-btn"
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span id="save-note-loading-spinner" class="hidden animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </span>
+                    <span id="save-note-btn-text">Save Note</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Search Input Section -->
+        <div class="mb-6">
+            <input
+                type="text"
+                id="search-query-input"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200 ease-in-out text-gray-700 shadow-sm"
+                placeholder="Search notes by keyword..."
+            />
+        </div>
+
+        <!-- Notes Display Section -->
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 border-b-2 border-blue-200 pb-2">
+            Your Notes
+        </h2>
+        <div id="notes-list" class="space-y-4">
+            <p id="no-notes-message" class="text-gray-600 text-center py-4">Loading application...</p>
+        </div>
+    </div>
+
+    <script>
+        // Global state variables
+        let notes = [];
+        let loading = true; // Overall app loading (specifically for initial local storage load)
+        let searchQuery = '';
+        let editingNoteId = null; // New: To track the note being edited
+
+        // DOM element references
+        const noteContentTextarea = document.getElementById('note-content');
+        const noteKeywordsInput = document.getElementById('note-keywords');
+        const saveNoteBtn = document.getElementById('save-note-btn');
+        const saveNoteLoadingSpinner = document.getElementById('save-note-loading-spinner');
+        const saveNoteBtnText = document.getElementById('save-note-btn-text');
+        const searchInput = document.getElementById('search-query-input');
+        const notesListDiv = document.getElementById('notes-list');
+        const noNotesMessage = document.getElementById('no-notes-message');
+        const messageBox = document.getElementById('message-box');
+        const darkModeToggle = document.getElementById('darkModeToggle'); // Dark mode toggle
+
+        // Load notes from localStorage
+        const loadNotesFromLocalStorage = () => {
+            const storedNotes = localStorage.getItem('notes_app_data');
+            if (storedNotes) {
+                try {
+                    notes = JSON.parse(storedNotes);
+                    // Initial sort to ensure pinned notes are at the top on load
+                    notes.sort((a, b) => {
+                        if (a.isPinned && !b.isPinned) return -1;
+                        if (!a.isPinned && b.isPinned) return 1;
+                        return (b.timestamp || 0) - (a.timestamp || 0);
+                    });
+                } catch (e) {
+                    console.error("Error parsing notes from localStorage:", e);
+                    showMessage("Error loading notes from local storage. Data might be corrupted.", "error");
+                    notes = []; // Reset if parsing fails
+                }
+            } else {
+                notes = [];
+            }
+            loading = false; // Initial loading complete
+            renderNotes(); // Render notes after loading
+            updateButtonStates(); // Update button states after loading
+        };
+
+        // Save notes to localStorage
+        const saveNotesToLocalStorage = () => {
+            try {
+                const notesJson = JSON.stringify(notes);
+                localStorage.setItem('notes_app_data', notesJson);
+            } catch (e) {
+                console.error("Error saving notes to localStorage:", e);
+                showMessage("Error saving notes to local storage. Please try again.", "error");
+            }
+        };
+
+        // Function to show messages in the message box
+        const showMessage = (message, type = 'info') => {
+            messageBox.textContent = message;
+            // Remove previous type classes and apply new ones
+            messageBox.className = `rounded-lg text-center ${
+                type === 'error' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+            }`;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000);
+        };
+
+        // Function to update button loading state and overall button enablement
+        const updateButtonStates = () => {
+            // Save/Update button is disabled if note content is empty
+            const disableButton = !noteContentTextarea.value.trim();
+
+            saveNoteBtn.disabled = disableButton;
+            saveNoteLoadingSpinner.classList.add('hidden'); // Ensure spinner is hidden
+            saveNoteBtnText.classList.remove('hidden'); // Ensure text is visible
+
+            if (editingNoteId) {
+                saveNoteBtnText.textContent = 'Update Note';
+            } else {
+                saveNoteBtnText.textContent = 'Save Note';
+            }
+        };
+
+        // Function to handle saving or updating a note
+        const handleSaveOrUpdateNote = () => {
+            const contentToSave = noteContentTextarea.value;
+            const keywordsToSave = noteKeywordsInput.value.trim();
+
+            if (!contentToSave.trim()) {
+                showMessage("Note content cannot be empty.", "error");
+                return;
+            }
+
+            if (editingNoteId) {
+                // Update existing note
+                const noteIndex = notes.findIndex(note => note.id === editingNoteId);
+                if (noteIndex !== -1) {
+                    notes[noteIndex].content = contentToSave;
+                    notes[noteIndex].keywords = keywordsToSave;
+                    // Optionally update timestamp on edit: notes[noteIndex].timestamp = Date.now();
+                    showMessage("Note updated successfully!");
+                } else {
+                    showMessage("Error: Note not found for updating.", "error");
+                }
+                editingNoteId = null; // Exit editing mode
+            } else {
+                // Save new note
+                const newNote = {
+                    id: Date.now().toString(), // Simple unique ID
+                    content: contentToSave,
+                    keywords: keywordsToSave,
+                    timestamp: Date.now(),
+                    isPinned: false // New notes are not pinned by default
+                };
+                notes.unshift(newNote); // Add to the beginning for most recent first
+                showMessage("Note saved successfully!");
+            }
+
+            // IMPORTANT: Re-sort notes after adding/updating to ensure pinning logic is applied
+            notes.sort((a, b) => {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                return (b.timestamp || 0) - (a.timestamp || 0);
+            });
+
+            saveNotesToLocalStorage(); // Save to localStorage
+            noteContentTextarea.value = ''; // Clear note content
+            noteKeywordsInput.value = ''; // Clear keyword input
+            renderNotes(); // Re-render to show changes
+            updateButtonStates(); // Update button states after saving/updating
+        };
+
+        // Function to handle editing a note
+        const handleEditNote = (idToEdit) => {
+            const noteToEdit = notes.find(note => note.id === idToEdit);
+            if (noteToEdit) {
+                noteContentTextarea.value = noteToEdit.content;
+                noteKeywordsInput.value = noteToEdit.keywords;
+                editingNoteId = idToEdit; // Set editing mode
+                updateButtonStates(); // Change button text to "Update Note"
+                noteContentTextarea.focus(); // Focus on the textarea for immediate editing
+            } else {
+                showMessage("Error: Note not found for editing.", "error");
+            }
+        };
+
+        // Function to delete a note
+        const handleDeleteNote = (idToDelete) => {
+            notes = notes.filter(note => note.id !== idToDelete);
+            saveNotesToLocalStorage(); // Save updated notes
+            renderNotes(); // Re-render the list
+            showMessage("Note deleted successfully!", "info");
+            // If the deleted note was the one being edited, clear the form
+            if (editingNoteId === idToDelete) {
+                editingNoteId = null;
+                noteContentTextarea.value = '';
+                noteKeywordsInput.value = '';
+                updateButtonStates();
+            }
+        };
+
+        // Function to handle emailing a note
+        const handleEmailNote = (note) => {
+            const subject = encodeURIComponent(`${note.content.substring(0, 50)}...`);
+            let body = `Note Content:\n\n${note.content}`;
+            if (note.keywords) {
+                body += `\n\nKeywords: ${note.keywords}`;
+            }
+            body += `\n\nTimestamp: ${new Date(note.timestamp).toLocaleString()}`;
+
+            const mailtoLink = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+
+            if (mailtoLink.length > 2000) {
+                showMessage("Warning: This note is very long and might be truncated by your email client.", "info");
+            }
+
+            window.open(mailtoLink, '_blank');
+        };
+
+        // Function to handle pinning/unpinning a note
+        const handlePinNote = (idToPin) => {
+            const noteIndex = notes.findIndex(note => note.id === idToPin);
+            if (noteIndex !== -1) {
+                notes[noteIndex].isPinned = !notes[noteIndex].isPinned; // Toggle pin status
+                // Re-sort notes: pinned notes first, then by timestamp (most recent first)
+                notes.sort((a, b) => {
+                    // Pinned notes (true) come before unpinned notes (false)
+                    if (a.isPinned && !b.isPinned) return -1;
+                    if (!a.isPinned && b.isPinned) return 1;
+
+                    // If both are pinned or both are unpinned, sort by timestamp (most recent first)
+                    return (b.timestamp || 0) - (a.timestamp || 0);
+                });
+                saveNotesToLocalStorage();
+                renderNotes();
+                showMessage(notes[noteIndex].isPinned ? "Note pinned!" : "Note unpinned.");
+            } else {
+                showMessage("Error: Note not found for pinning.", "error");
+            }
+        };
+
+
+        // Function to render notes based on search query
+        const renderNotes = () => {
+            notesListDiv.innerHTML = '';
+            const lowerCaseQuery = searchQuery.toLowerCase();
+
+            const filteredNotes = notes.filter(note =>
+                note.content.toLowerCase().includes(lowerCaseQuery) ||
+                (note.keywords && note.keywords.toLowerCase().includes(lowerCaseQuery))
+            );
+
+            if (loading && notes.length === 0) {
+                noNotesMessage.textContent = 'Loading application...';
+                noNotesMessage.style.display = 'block';
+                notesListDiv.appendChild(noNotesMessage);
+                return;
+            }
+
+            if (filteredNotes.length === 0 && searchQuery) {
+                noNotesMessage.textContent = 'No notes found matching your search.';
+                noNotesMessage.style.display = 'block';
+                notesListDiv.appendChild(noNotesMessage);
+            } else if (filteredNotes.length === 0 && !searchQuery) {
+                noNotesMessage.textContent = 'No notes yet. Start by writing one above!';
+                noNotesMessage.style.display = 'block';
+                notesListDiv.appendChild(noNotesMessage);
+            } else {
+                noNotesMessage.style.display = 'none';
+                filteredNotes.forEach(note => {
+                    const noteDiv = document.createElement('div');
+                    // Add 'pinned-note' class if the note is pinned
+                    noteDiv.className = `bg-blue-50 p-5 rounded-lg shadow-sm border border-blue-200 relative ${note.isPinned ? 'pinned-note' : ''}`;
+                    const timestampDate = new Date(note.timestamp);
+                    noteDiv.innerHTML = `
+                        <p class="text-gray-800 whitespace-pre-wrap text-lg mb-2 p-3">${note.content}</p>
+                        <div class="flex justify-between items-center text-sm px-3 pb-2">
+                            ${note.keywords ? `<span class="text-gray-600">Keywords: ${note.keywords}</span>` : '<span></span>'}
+                            <span class="text-gray-500">${timestampDate.toLocaleString()}</span>
+                        </div>
+                        <div class="absolute top-2 right-2 flex items-center gap-1"> <!-- New flex container for buttons -->
+                            <button class="pin-note-btn bg-blue-400 hover:bg-blue-500 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-75" data-note-id="${note.id}">
+                                📌
+                            </button>
+                            <button class="edit-note-btn bg-amber-500 hover:bg-amber-600 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-opacity-75" data-note-id="${note.id}">
+                                ✏️
+                            </button>
+                            <button class="email-note-btn bg-green-500 hover:bg-green-600 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75" data-note-id="${note.id}">
+                                ✉
+                            </button>
+                            <button class="delete-note-btn bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75" data-note-id="${note.id}">
+                                ✕
+                            </button>
+                        </div>
+                    `;
+                    notesListDiv.appendChild(noteDiv);
+                });
+
+                // Attach event listeners to all newly rendered buttons
+                document.querySelectorAll('.delete-note-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const noteId = e.target.dataset.noteId;
+                        handleDeleteNote(noteId);
+                    });
+                });
+
+                document.querySelectorAll('.email-note-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const noteId = e.target.dataset.noteId;
+                        const noteToEmail = notes.find(note => note.id === noteId);
+                        if (noteToEmail) {
+                            handleEmailNote(noteToEmail);
+                        } else {
+                            showMessage("Error: Note not found for emailing.", "error");
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.edit-note-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const noteId = e.target.dataset.noteId;
+                        handleEditNote(noteId);
+                    });
+                });
+
+                // New: Attach event listeners to pin buttons
+                document.querySelectorAll('.pin-note-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const noteId = e.target.dataset.noteId;
+                        handlePinNote(noteId);
+                    });
+                });
+            }
+        };
+
+        // Dark Mode Functions
+        const enableDarkMode = () => {
+            document.body.classList.add('dark-mode');
+            localStorage.setItem('darkMode', 'enabled');
+        };
+
+        const disableDarkMode = () => {
+            document.body.classList.remove('dark-mode');
+            localStorage.setItem('darkMode', 'disabled');
+        };
+
+        // Event Listeners
+        saveNoteBtn.addEventListener('click', handleSaveOrUpdateNote);
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderNotes();
+        });
+        noteContentTextarea.addEventListener('input', updateButtonStates);
+        noteKeywordsInput.addEventListener('input', updateButtonStates);
+
+        // Dark Mode Toggle Listener
+        darkModeToggle.addEventListener('change', () => {
+            if (darkModeToggle.checked) {
+                enableDarkMode();
+            } else {
+                disableDarkMode();
+            }
+        });
+
+        // Initialize the application on window load
+        window.onload = () => {
+            loadNotesFromLocalStorage(); // Load notes from localStorage on start
+
+            // Check for saved dark mode preference
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                darkModeToggle.checked = true;
+                enableDarkMode();
+            } else {
+                darkModeToggle.checked = false;
+                disableDarkMode();
+            }
+        };
+    </script>
+</body>
+</html>
