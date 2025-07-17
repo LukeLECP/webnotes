@@ -295,8 +295,14 @@
         /* Semi-transparent buttons and hover effect */
         .pin-note-btn,
         .edit-note-btn,
-        .email-note-btn,
-        .delete-note-btn {
+        .email-note-btn {
+            background-color: transparent; /* No background */
+            color: var(--text-color); /* Use main text color for visibility */
+            opacity: 0.5; /* Default semi-transparent */
+            transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out; /* Smooth transition for opacity and background */
+        }
+
+        .delete-note-btn { /* Delete button retains its background for prominence */
             opacity: 0.5; /* Default semi-transparent */
             transition: opacity 0.2s ease-in-out; /* Smooth transition for opacity */
         }
@@ -306,6 +312,18 @@
         .email-note-btn:hover,
         .delete-note-btn:hover {
             opacity: 1; /* Fully opaque on hover */
+            /* For pin, edit, email, add a subtle background on hover */
+            background-color: rgba(0, 0, 0, 0.1); /* Light background on hover */
+        }
+        body.dark-mode .pin-note-btn:hover,
+        body.dark-mode .edit-note-btn:hover,
+        body.dark-mode .email-note-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1); /* Dark mode hover background */
+        }
+
+        /* Add rounded-full definition */
+        .rounded-full {
+            border-radius: 9999px;
         }
     </style>
 </head>
@@ -351,7 +369,7 @@
             <div class="flex flex-col sm:flex-row gap-3 mt-4">
                 <button
                     id="save-note-btn"
-                    class="flex-1 bg-blue-600 hover:bg-blue-700 font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 font-bold py-3 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <span id="save-note-loading-spinner" class="hidden animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -635,13 +653,13 @@
                             <span class="text-gray-500">${timestampDate.toLocaleString()}</span>
                         </div>
                         <div class="absolute top-2 right-2 flex items-center gap-1"> <!-- New flex container for buttons -->
-                            <button class="pin-note-btn bg-blue-400 hover:bg-blue-500 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-75" data-note-id="${note.id}">
+                            <button class="pin-note-btn text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-75" data-note-id="${note.id}">
                                 📌
                             </button>
-                            <button class="edit-note-btn bg-amber-500 hover:bg-amber-600 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-opacity-75" data-note-id="${note.id}">
+                            <button class="edit-note-btn text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-opacity-75" data-note-id="${note.id}">
                                 ✏️
                             </button>
-                            <button class="email-note-btn bg-green-500 hover:bg-green-600 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75" data-note-id="${note.id}">
+                            <button class="email-note-btn text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75" data-note-id="${note.id}">
                                 ✉
                             </button>
                             <button class="delete-note-btn bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75" data-note-id="${note.id}">
