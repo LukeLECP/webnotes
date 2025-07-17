@@ -295,30 +295,30 @@
         /* Semi-transparent buttons and hover effect */
         .pin-note-btn,
         .edit-note-btn,
-        .email-note-btn {
+        .email-note-btn,
+        .delete-note-btn { /* Added delete-note-btn here */
             background-color: transparent; /* No background */
             color: var(--text-color); /* Use main text color for visibility */
             opacity: 0.5; /* Default semi-transparent */
-            transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out; /* Smooth transition for opacity and background */
-        }
-
-        .delete-note-btn { /* Delete button retains its background for prominence */
-            opacity: 0.5; /* Default semi-transparent */
-            transition: opacity 0.2s ease-in-out; /* Smooth transition for opacity */
+            transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out, color 0.2s ease-in-out; /* Smooth transition for opacity, background, and color */
         }
 
         .pin-note-btn:hover,
         .edit-note-btn:hover,
-        .email-note-btn:hover,
-        .delete-note-btn:hover {
+        .email-note-btn:hover {
             opacity: 1; /* Fully opaque on hover */
-            /* For pin, edit, email, add a subtle background on hover */
             background-color: rgba(0, 0, 0, 0.1); /* Light background on hover */
         }
         body.dark-mode .pin-note-btn:hover,
         body.dark-mode .edit-note-btn:hover,
         body.dark-mode .email-note-btn:hover {
             background-color: rgba(255, 255, 255, 0.1); /* Dark mode hover background */
+        }
+
+        .delete-note-btn:hover {
+            opacity: 1; /* Fully opaque on hover */
+            background-color: var(--delete-button-bg); /* Red background on hover */
+            color: white; /* White text on red background */
         }
 
         /* Add rounded-full definition */
