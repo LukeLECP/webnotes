@@ -312,7 +312,7 @@
         <div class="mb-8">
             <textarea
                 id="note-content"
-                class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200 ease-in-out text-gray-700 resize-y min-h-[120px] shadow-sm"
+                class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200 ease-in-out text-gray-700 resize-y min-h-[120px] shadow-sm mb-4"
                 placeholder="Write your note here..."
                 rows="5"
             ></textarea>
@@ -320,8 +320,15 @@
             <input
                 type="text"
                 id="note-keywords"
-                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200 ease-in-out text-gray-700 shadow-sm mt-3"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200 ease-in-out text-gray-700 shadow-sm mb-4"
                 placeholder="Add comma-separated keywords (e.g., work, idea, urgent)"
+            />
+            <!-- Phone Number Input Field -->
+            <input
+                type="tel"
+                id="note-phone-number"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200 ease-in-out text-gray-700 shadow-sm mb-4"
+                placeholder="Add a phone number (e.g., +1234567890)"
             />
             <div class="flex flex-col sm:flex-row gap-3 mt-4">
                 <button
@@ -348,7 +355,7 @@
         </div>
 
         <!-- Notes Display Section -->
-        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 border-b-2 border-blue-200 pb-2">
+        <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-4 border-b-2 border-blue-200 pb-2">
             Your Notes
         </h2>
         <div id="notes-list" class="space-y-4">
@@ -366,6 +373,7 @@
         // DOM element references
         const noteContentTextarea = document.getElementById('note-content');
         const noteKeywordsInput = document.getElementById('note-keywords');
+        const notePhoneNumberInput = document.getElementById('note-phone-number'); // New: Phone number input
         const saveNoteBtn = document.getElementById('save-note-btn');
         const saveNoteLoadingSpinner = document.getElementById('save-note-loading-spinner');
         const saveNoteBtnText = document.getElementById('save-note-btn-text');
@@ -444,6 +452,7 @@
         const handleSaveOrUpdateNote = () => {
             const contentToSave = noteContentTextarea.value;
             const keywordsToSave = noteKeywordsInput.value.trim();
+            const phoneNumberToSave = notePhoneNumberInput.value.trim(); // Get phone number
 
             if (!contentToSave.trim()) {
                 showMessage("Note content cannot be empty.", "error");
@@ -456,6 +465,7 @@
                 if (noteIndex !== -1) {
                     notes[noteIndex].content = contentToSave;
                     notes[noteIndex].keywords = keywordsToSave;
+                    notes[noteIndex].phoneNumber = phoneNumberToSave; // Save phone number
                     // Optionally update timestamp on edit: notes[noteIndex].timestamp = Date.now();
                     showMessage("Note updated successfully!");
                 } else {
@@ -468,6 +478,7 @@
                     id: Date.now().toString(), // Simple unique ID
                     content: contentToSave,
                     keywords: keywordsToSave,
+                    phoneNumber: phoneNumberToSave, // Save phone number
                     timestamp: Date.now(),
                     isPinned: false // New notes are not pinned by default
                 };
@@ -485,6 +496,7 @@
             saveNotesToLocalStorage(); // Save to localStorage
             noteContentTextarea.value = ''; // Clear note content
             noteKeywordsInput.value = ''; // Clear keyword input
+            notePhoneNumberInput.value = ''; // Clear phone number input
             renderNotes(); // Re-render to show changes
             updateButtonStates(); // Update button states after saving/updating
         };
@@ -495,6 +507,7 @@
             if (noteToEdit) {
                 noteContentTextarea.value = noteToEdit.content;
                 noteKeywordsInput.value = noteToEdit.keywords;
+                notePhoneNumberInput.value = noteToEdit.phoneNumber || ''; // Populate phone number
                 editingNoteId = idToEdit; // Set editing mode
                 updateButtonStates(); // Change button text to "Update Note"
                 noteContentTextarea.focus(); // Focus on the textarea for immediate editing
@@ -514,16 +527,21 @@
                 editingNoteId = null;
                 noteContentTextarea.value = '';
                 noteKeywordsInput.value = '';
+                notePhoneNumberInput.value = '';
                 updateButtonStates();
             }
         };
 
         // Function to handle emailing a note
         const handleEmailNote = (note) => {
-            const subject = encodeURIComponent(`${note.content.substring(0, 50)}...`);
+            const subject = encodeURIComponent(`${note.content.substring(0, 0)}...`); // Empty subject
             let body = `Note Content:\n\n${note.content}`;
             if (note.keywords) {
                 body += `\n\nKeywords: ${note.keywords}`;
+            }
+            if (note.phoneNumber) { // Add phone number as tel: link
+                // Changed to just include tel: protocol without <a> tag
+                body += `\n\nPhone Number: tel:${note.phoneNumber}`;
             }
             body += `\n\nTimestamp: ${new Date(note.timestamp).toLocaleString()}`;
 
@@ -593,6 +611,7 @@
                     const timestampDate = new Date(note.timestamp);
                     noteDiv.innerHTML = `
                         <p class="text-gray-800 whitespace-pre-wrap text-lg mb-2 p-3">${note.content}</p>
+                        ${note.phoneNumber ? `<p class="text-gray-800 whitespace-pre-wrap text-lg mb-2 p-3">Phone: <a href="tel:${note.phoneNumber}">${note.phoneNumber}</a></p>` : ''}
                         <div class="flex justify-between items-center text-sm px-3 pb-2">
                             ${note.keywords ? `<span class="text-gray-600">Keywords: ${note.keywords}</span>` : '<span></span>'}
                             <span class="text-gray-500">${timestampDate.toLocaleString()}</span>
@@ -671,6 +690,7 @@
         });
         noteContentTextarea.addEventListener('input', updateButtonStates);
         noteKeywordsInput.addEventListener('input', updateButtonStates);
+        notePhoneNumberInput.addEventListener('input', updateButtonStates); // New: Listen for phone number input changes
 
         // Dark Mode Toggle Listener
         darkModeToggle.addEventListener('change', () => {
