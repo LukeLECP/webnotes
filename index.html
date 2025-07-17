@@ -291,6 +291,22 @@
         .right-6 { right: 1.5rem; } /* Added definition */
         .justify-between { justify-content: space-between; } /* Added definition */
         .gap-1 { gap: 0.25rem; } /* Added for small gap between buttons */
+
+        /* Semi-transparent buttons and hover effect */
+        .pin-note-btn,
+        .edit-note-btn,
+        .email-note-btn,
+        .delete-note-btn {
+            opacity: 0.5; /* Default semi-transparent */
+            transition: opacity 0.2s ease-in-out; /* Smooth transition for opacity */
+        }
+
+        .pin-note-btn:hover,
+        .edit-note-btn:hover,
+        .email-note-btn:hover,
+        .delete-note-btn:hover {
+            opacity: 1; /* Fully opaque on hover */
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center">
