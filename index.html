@@ -92,8 +92,10 @@
         .border-gray-300 { border-color: var(--border-color); }
         /* Apply input-text variable to elements with text-gray-700 class */
         .text-gray-700 { color: var(--input-text); }
-        /* Apply input-bg variable to textarea and input[type="text"] specifically */
-        textarea.text-gray-700, input[type="text"].text-gray-700 {
+        /* Apply input-bg variable to textarea and input[type="text"], input[type="tel"] specifically */
+        textarea.text-gray-700,
+        input[type="text"].text-gray-700,
+        input[type="tel"].text-gray-700 { /* Added input[type="tel"] here */
             background-color: var(--input-bg);
         }
         .text-gray-600 { color: var(--placeholder-text); } /* For keywords and general gray text */
@@ -535,7 +537,7 @@
         // Function to handle emailing a note
         const handleEmailNote = (note) => {
             const subject = encodeURIComponent(`${note.content.substring(0, 0)}...`); // Empty subject
-            let body = `Note Content:\n\n${note.content}`;
+            let body = `${note.content}`; // Removed "Note Content:"
             if (note.keywords) {
                 body += `\n\nKeywords: ${note.keywords}`;
             }
