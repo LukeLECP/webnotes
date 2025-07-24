@@ -579,7 +579,7 @@
                 // Changed to just include tel: protocol without <a> tag
                 body += `\n\nPhone Number: tel:${note.phoneNumber}`;
             }
-            body += `\n\nTimestamp: ${new Date(note.timestamp).toLocaleString()}`;
+            body += `\n\n${new Date(note.timestamp).toLocaleString()}`; // Removed "Timestamp:"
 
             const mailtoLink = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
 
@@ -647,7 +647,7 @@
                     const timestampDate = new Date(note.timestamp);
                     noteDiv.innerHTML = `
                         <p class="text-gray-800 whitespace-pre-wrap text-lg mb-2 p-3">${note.content}</p>
-                        ${note.phoneNumber ? `<p class="text-gray-800 whitespace-pre-wrap text-lg mb-2 p-3">Phone: <a href="tel:${note.phoneNumber}">${note.phoneNumber}</a></p>` : ''}
+                        ${note.phoneNumber ? `<p class="text-gray-800 whitespace-pre-wrap text-lg mb-2 p-3">Phone: ${note.phoneNumber}</p>` : ''}
                         <div class="flex justify-between items-center text-sm px-3 pb-2">
                             ${note.keywords ? `<span class="text-gray-600">Keywords: ${note.keywords}</span>` : '<span></span>'}
                             <span class="text-gray-500">${timestampDate.toLocaleString()}</span>
