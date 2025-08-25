@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notes</title>
+    <title>Web Notes</title>
     <!-- Tailwind CSS (Embedded for Offline Use) -->
     <style>
         /* Universal box-sizing for consistent layout */
@@ -55,30 +55,30 @@
 
         /* Dark mode specific styles */
         body.dark-mode {
-            --bg-gradient-from: #1a202c; /* dark blue-gray */
-            --bg-gradient-to: #2d3748;   /* slightly lighter dark blue-gray */
-            --main-bg: #2d3748;         /* main card background */
-            --text-color: #e2e8f0;      /* light gray text */
-            --border-color: #4a5568;    /* darker border */
-            --input-bg: #374151;        /* Dark grey background for inputs in dark mode */
+            --bg-gradient-from: #111827; /* much darker blue-gray */
+            --bg-gradient-to: #1a202c;   /* darker gradient end */
+            --main-bg: #18181b;         /* very dark card background */
+            --text-color: #f3f4f6;      /* lighter text */
+            --border-color: #27272a;    /* very dark border */
+            --input-bg: #23272f;        /* darker input background */
             --input-text: #FFFFFF;      /* White text for inputs in dark mode */
-            --placeholder-text: #a0aec0; /* placeholder text */
-            --button-bg-blue: #4299e1;  /* blue button in dark mode */
-            --button-hover-blue: #3182ce;
-            --message-box-info-bg: #2b6cb0; /* info message box */
-            --message-box-info-text: #e0f2f7;
-            --message-box-error-bg: #c53030; /* error message box */
-            --message-box-error-text: #fed7d7;
-            --note-bg: #4a5568;         /* note background */
-            --note-border: #6b7280;     /* note border */
-            --note-text: #e2e8f0;       /* note text */
+            --placeholder-text: #6b7280; /* slightly lighter placeholder */
+            --button-bg-blue: #2563eb;  /* deeper blue button */
+            --button-hover-blue: #1d4ed8;
+            --message-box-info-bg: #1e293b; /* much darker info box */
+            --message-box-info-text: #cbd5e1;
+            --message-box-error-bg: #7f1d1d; /* much darker error box */
+            --message-box-error-text: #fee2e2;
+            --note-bg: #18181b;         /* very dark note background */
+            --note-border: #27272a;     /* very dark note border */
+            --note-text: #f3f4f6;       /* lighter note text */
             --note-timestamp-text: #a0aec0; /* note timestamp text */
-            --delete-button-bg: #e53e3e; /* delete button in dark mode */
-            --delete-button-hover: #c53030;
-            --email-button-bg: #68d391; /* Green for email in dark mode */
-            --email-button-hover: #48bb78;
-            --edit-button-bg: #FDD835; /* Amber for edit in dark mode */
-            --edit-button-hover: #FBC02D;
+            --delete-button-bg: #991b1b; /* deeper red for delete */
+            --delete-button-hover: #7f1d1d;
+            --email-button-bg: #166534; /* deeper green for email */
+            --email-button-hover: #14532d;
+            --edit-button-bg: #b45309; /* deeper amber for edit */
+            --edit-button-hover: #92400e;
             --pin-button-bg: #60a5fa; /* Blue for pin in dark mode */
             --pin-button-hover: #3b82f6;
             --pinned-note-bg: #4a412a; /* Darker yellow for pinned note background in dark mode */
@@ -330,7 +330,7 @@
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center">
     <div class="w-full max-w-3xl bg-white rounded-xl shadow-lg p-6 sm:p-8 relative"> <!-- Added relative here for absolute positioning -->
         <h1 class="text-3xl sm:text-4xl font-extrabold text-center text-gray-800 mb-6">
-            Notes
+            Web Notes
         </h1>
         <!-- Dark Mode Switch with Moon Icon - positioned absolutely to the right -->
         <div class="absolute top-6 right-6 flex items-center space-x-2">
@@ -570,16 +570,17 @@
 
         // Function to handle emailing a note
         const handleEmailNote = (note) => {
-            const subject = encodeURIComponent(`${note.content.substring(0, 0)}...`); // Empty subject
-            let body = `${note.content}`; // Removed "Note Content:"
+            // Remove 'work' from keywords and put keywords in subject
+            let subjectKeywords = '';
             if (note.keywords) {
-                body += `\n\nKeywords: ${note.keywords}`;
+                subjectKeywords = note.keywords.split(',').map(k => k.trim()).filter(k => k.toLowerCase() !== 'work').join(', ');
             }
-            if (note.phoneNumber) { // Add phone number as tel: link
-                // Changed to just include tel: protocol without <a> tag
+            const subject = encodeURIComponent(subjectKeywords ? subjectKeywords : '');
+            let body = `${note.content}`;
+            if (note.phoneNumber) {
                 body += `\n\nPhone Number: tel:${note.phoneNumber}`;
             }
-            body += `\n\n${new Date(note.timestamp).toLocaleString()}`; // Removed "Timestamp:"
+            body += `\n\n${new Date(note.timestamp).toLocaleString()}`;
 
             const mailtoLink = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
 
@@ -646,26 +647,26 @@
                     noteDiv.className = `bg-blue-50 p-5 rounded-lg shadow-sm border border-blue-200 relative ${note.isPinned ? 'pinned-note' : ''}`;
                     const timestampDate = new Date(note.timestamp);
                     noteDiv.innerHTML = `
-                        <p class="text-gray-800 whitespace-pre-wrap text-lg mb-2 p-3">${note.content}</p>
-                        ${note.phoneNumber ? `<p class="text-gray-800 whitespace-pre-wrap text-lg mb-2 p-3">Phone: ${note.phoneNumber}</p>` : ''}
+                        <p class="text-gray-800 whitespace-pre-wrap text-lg mb-0.5 px-3">${note.content}</p>
+                        ${note.phoneNumber ? `<p class="text-gray-800 whitespace-pre-wrap text-lg mb-0.5 px-3">Phone: ${note.phoneNumber}</p>` : ''}
                         <div class="flex justify-between items-center text-sm px-3 pb-2">
                             ${note.keywords ? `<span class="text-gray-600">Keywords: ${note.keywords}</span>` : '<span></span>'}
                             <span class="text-gray-500">${timestampDate.toLocaleString()}</span>
                         </div>
-                        <div class="absolute top-2 right-2 flex items-center gap-1"> <!-- New flex container for buttons -->
-                            <button class="pin-note-btn text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-75" data-note-id="${note.id}">
-                                📌
-                            </button>
-                            <button class="edit-note-btn text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-opacity-75" data-note-id="${note.id}">
-                                ✏️
-                            </button>
-                            <button class="email-note-btn text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75" data-note-id="${note.id}">
-                                ✉
-                            </button>
-                            <button class="delete-note-btn bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75" data-note-id="${note.id}">
-                                ✕
-                            </button>
-                        </div>
+                            <div class="absolute top-2 right-2 flex items-center gap-2"> <!-- Uniform flex container for buttons -->
+                                <button class="pin-note-btn text-white p-1 rounded-full text-xs w-7 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-75" data-note-id="${note.id}">
+                                    📌
+                                </button>
+                                <button class="edit-note-btn text-white p-1 rounded-full text-xs w-7 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-opacity-75" data-note-id="${note.id}">
+                                    ✏️
+                                </button>
+                                <button class="email-note-btn text-white p-1 rounded-full text-xs w-7 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75" data-note-id="${note.id}">
+                                    📧
+                                </button>
+                                <button class="delete-note-btn bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs w-7 h-6 flex items-center justify-center shadow-md transition duration-200 ease-in-out transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75" data-note-id="${note.id}">
+                                    ❌
+                                </button>
+                            </div>
                     `;
                     notesListDiv.appendChild(noteDiv);
                 });
