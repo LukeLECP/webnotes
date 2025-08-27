@@ -326,6 +326,11 @@
         .rounded-full {
             border-radius: 9999px;
         }
+
+    /* Drag & drop note card cues */
+    .note-card { cursor: grab; }
+    .note-card.dragging { opacity: 0.85; }
+    .note-card.drag-over { outline: 2px dashed var(--border-color); outline-offset: 2px; }
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center">
@@ -406,6 +411,7 @@
         let loading = true; // Overall app loading (specifically for initial local storage load)
         let searchQuery = '';
         let editingNoteId = null; // New: To track the note being edited
+        let orderInitialized = false; // Track if order has been initialized
 
         // DOM element references
         const noteContentTextarea = document.getElementById('note-content');
@@ -454,6 +460,42 @@
                 console.error("Error saving notes to localStorage:", e);
                 showMessage("Error saving notes to local storage. Please try again.", "error");
             }
+        };
+
+        // Helpers for ordering within pinned/unpinned groups
+        const getGroup = (note) => note.isPinned ? 'pinned' : 'unpinned';
+        const getGroupNotes = (group) => notes.filter(n => (group === 'pinned' ? n.isPinned : !n.isPinned));
+        const sortGroupForRender = (groupNotes) => groupNotes.slice().sort((a, b) => {
+            const ao = (typeof a.order === 'number') ? a.order : Number.POSITIVE_INFINITY;
+            const bo = (typeof b.order === 'number') ? b.order : Number.POSITIVE_INFINITY;
+            if (ao !== bo) return ao - bo; // smaller order first
+            // fallback to timestamp desc
+            return (b.timestamp || 0) - (a.timestamp || 0);
+        });
+        const reindexGroup = (group) => {
+            const arr = sortGroupForRender(getGroupNotes(group));
+            arr.forEach((n, idx) => { n.order = idx; });
+        };
+        const initializeOrderIfMissing = () => {
+            let changed = false;
+            ['pinned', 'unpinned'].forEach(group => {
+                const arr = sortGroupForRender(getGroupNotes(group));
+                arr.forEach((n, idx) => {
+                    if (typeof n.order !== 'number') { n.order = idx; changed = true; }
+                });
+            });
+            if (changed) saveNotesToLocalStorage();
+            orderInitialized = true;
+        };
+        const moveWithinGroup = (group, fromNoteId, toNoteId) => {
+            const groupArr = sortGroupForRender(getGroupNotes(group));
+            const fromIdx = groupArr.findIndex(n => n.id === fromNoteId);
+            const toIdx = groupArr.findIndex(n => n.id === toNoteId);
+            if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+            const [moved] = groupArr.splice(fromIdx, 1);
+            groupArr.splice(toIdx, 0, moved);
+            groupArr.forEach((n, idx) => { n.order = idx; });
+            saveNotesToLocalStorage();
         };
 
         // Function to show messages in the message box
@@ -517,18 +559,19 @@
                     keywords: keywordsToSave,
                     phoneNumber: phoneNumberToSave, // Save phone number
                     timestamp: Date.now(),
-                    isPinned: false // New notes are not pinned by default
+                    isPinned: false, // New notes are not pinned by default
+                    order: 0
                 };
-                notes.unshift(newNote); // Add to the beginning for most recent first
+                // Insert at top of unpinned group by bumping others
+                const unpinned = sortGroupForRender(getGroupNotes('unpinned'));
+                unpinned.forEach(n => { if (typeof n.order === 'number') n.order += 1; });
+                notes.push(newNote); // add; order will place at top of unpinned
                 showMessage("Note saved successfully!");
             }
 
             // IMPORTANT: Re-sort notes after adding/updating to ensure pinning logic is applied
-            notes.sort((a, b) => {
-                if (a.isPinned && !b.isPinned) return -1;
-                if (!a.isPinned && b.isPinned) return 1;
-                return (b.timestamp || 0) - (a.timestamp || 0);
-            });
+            // Sort only for immediate render; actual order within group uses 'order'
+            notes.sort((a, b) => (b.isPinned - a.isPinned));
 
             saveNotesToLocalStorage(); // Save to localStorage
             noteContentTextarea.value = ''; // Clear note content
@@ -597,15 +640,14 @@
             const noteIndex = notes.findIndex(note => note.id === idToPin);
             if (noteIndex !== -1) {
                 notes[noteIndex].isPinned = !notes[noteIndex].isPinned; // Toggle pin status
-                // Re-sort notes: pinned notes first, then by timestamp (most recent first)
-                notes.sort((a, b) => {
-                    // Pinned notes (true) come before unpinned notes (false)
-                    if (a.isPinned && !b.isPinned) return -1;
-                    if (!a.isPinned && b.isPinned) return 1;
-
-                    // If both are pinned or both are unpinned, sort by timestamp (most recent first)
-                    return (b.timestamp || 0) - (a.timestamp || 0);
-                });
+                // Place toggled note at top of its new group and reindex
+                const group = notes[noteIndex].isPinned ? 'pinned' : 'unpinned';
+                // Bump existing orders in that group
+                getGroupNotes(group).forEach(n => { if (typeof n.order === 'number') n.order += 1; });
+                notes[noteIndex].order = 0;
+                // Reindex both groups to compact indices
+                reindexGroup('pinned');
+                reindexGroup('unpinned');
                 saveNotesToLocalStorage();
                 renderNotes();
                 showMessage(notes[noteIndex].isPinned ? "Note pinned!" : "Note unpinned.");
@@ -619,6 +661,8 @@
         const renderNotes = () => {
             notesListDiv.innerHTML = '';
             const lowerCaseQuery = searchQuery.toLowerCase();
+
+            if (!orderInitialized) initializeOrderIfMissing();
 
             const filteredNotes = notes.filter(note =>
                 note.content.toLowerCase().includes(lowerCaseQuery) ||
@@ -642,10 +686,19 @@
                 notesListDiv.appendChild(noNotesMessage);
             } else {
                 noNotesMessage.style.display = 'none';
-                filteredNotes.forEach(note => {
+
+                // Separate groups and sort within each by order for stable display
+                const pinnedGroup = sortGroupForRender(filteredNotes.filter(n => n.isPinned));
+                const unpinnedGroup = sortGroupForRender(filteredNotes.filter(n => !n.isPinned));
+                const renderOrder = [...pinnedGroup, ...unpinnedGroup];
+
+                renderOrder.forEach(note => {
                     const noteDiv = document.createElement('div');
                     // Add 'pinned-note' class if the note is pinned
-                    noteDiv.className = `bg-blue-50 p-5 rounded-lg shadow-sm border border-blue-200 relative ${note.isPinned ? 'pinned-note' : ''}`;
+                    noteDiv.className = `note-card bg-blue-50 p-5 rounded-lg shadow-sm border border-blue-200 relative ${note.isPinned ? 'pinned-note' : ''}`;
+                    noteDiv.setAttribute('draggable', searchQuery ? 'false' : 'true');
+                    noteDiv.dataset.noteId = note.id;
+                    noteDiv.dataset.group = note.isPinned ? 'pinned' : 'unpinned';
                     const timestampDate = new Date(note.timestamp);
                     noteDiv.innerHTML = `
                         <p class="text-gray-800 whitespace-pre-wrap text-lg mb-0.5 px-3">${note.content}</p>
@@ -706,6 +759,50 @@
                         handlePinNote(noteId);
                     });
                 });
+
+                // Drag-and-drop handlers (disabled during search)
+                if (!searchQuery) {
+                    const cards = notesListDiv.querySelectorAll('.note-card');
+                    let dragSourceId = null;
+                    let dragSourceGroup = null;
+
+                    cards.forEach(card => {
+                        card.addEventListener('dragstart', (ev) => {
+                            dragSourceId = card.dataset.noteId;
+                            dragSourceGroup = card.dataset.group;
+                            card.classList.add('dragging');
+                            ev.dataTransfer.setData('text/plain', dragSourceId);
+                            ev.dataTransfer.effectAllowed = 'move';
+                        });
+                        card.addEventListener('dragend', () => {
+                            card.classList.remove('dragging');
+                            cards.forEach(c => c.classList.remove('drag-over'));
+                        });
+                        card.addEventListener('dragover', (ev) => {
+                            const target = ev.currentTarget;
+                            if (target.dataset.group !== dragSourceGroup) return; // block cross-group
+                            ev.preventDefault(); // allow drop
+                            ev.dataTransfer.dropEffect = 'move';
+                            target.classList.add('drag-over');
+                        });
+                        card.addEventListener('dragleave', (ev) => {
+                            ev.currentTarget.classList.remove('drag-over');
+                        });
+                        card.addEventListener('drop', (ev) => {
+                            ev.preventDefault();
+                            const target = ev.currentTarget;
+                            target.classList.remove('drag-over');
+                            const targetId = target.dataset.noteId;
+                            if (!dragSourceId || dragSourceId === targetId) return;
+                            if (target.dataset.group !== dragSourceGroup) {
+                                showMessage('Can\'t move between pinned and unpinned.', 'info');
+                                return;
+                            }
+                            moveWithinGroup(dragSourceGroup, dragSourceId, targetId);
+                            renderNotes();
+                        });
+                    });
+                }
             }
         };
 
