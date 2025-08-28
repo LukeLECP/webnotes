@@ -360,10 +360,28 @@
             border-radius: 9999px;
         }
 
-    /* Drag & drop note card cues */
-    .drag-handle { cursor: grab; }
-    .note-card.dragging { opacity: 0.85; }
+    /* Drag & drop note card cues + animations */
+    .drag-handle { cursor: grab; touch-action: none; }
+    .drag-handle.dragging { cursor: grabbing; }
+    .note-card { will-change: transform; transition: transform 180ms ease, box-shadow 180ms ease; }
     .note-card.drag-over { outline: 2px dashed var(--border-color); outline-offset: 2px; }
+    .drag-mirror {
+        position: fixed;
+        left: 0; top: 0;
+        z-index: 10000; /* above everything */
+        pointer-events: none;
+        transform: translate3d(0,0,0) scale(1.02);
+        box-shadow: 0 16px 30px rgba(0,0,0,0.25), 0 6px 10px rgba(0,0,0,0.1);
+        opacity: 0.98;
+        border-radius: 0.5rem; /* match .rounded-lg */
+    }
+    .note-placeholder {
+        border: 2px dashed var(--border-color);
+        border-radius: 0.5rem;
+        background: transparent;
+        min-height: 56px; /* ensures visible space even if content short */
+        margin: 2px 0; /* slight spacing so it doesn't look overlapped */
+    }
 
         /* Wrap long words/URLs inside notes so they don't overflow */
         .note-card, .note-card p, .note-card span {
@@ -371,8 +389,8 @@
             word-break: break-word;   /* fallback for broader compatibility */
         }
 
-        /* Resizable container handle */
-        #app-container { overflow-y: auto; overflow-x: hidden; }
+    /* Resizable container handle */
+    #app-container { overflow-y: auto; overflow-x: hidden; max-width: 100%; }
         #app-container .resize-handle-x {
             position: absolute;
             top: 0;
@@ -841,16 +859,6 @@
                 return;
             }
 
-            // Auto-generate keywords if empty
-            if (!keywordsToSave) {
-                const autoKws = generateKeywordsFromText(contentToSave, { max: 8 });
-                if (autoKws.length) {
-                    keywordsToSave = autoKws.join(', ');
-                    // reflect back in the input so the user sees what was saved
-                    noteKeywordsInput.value = keywordsToSave;
-                }
-            }
-
             if (editingNoteId) {
                 // Update existing note
                 const noteIndex = notes.findIndex(note => note.id === editingNoteId);
@@ -899,7 +907,7 @@
             const noteToEdit = notes.find(note => note.id === idToEdit);
             if (noteToEdit) {
                 noteContentTextarea.value = noteToEdit.content;
-                noteKeywordsInput.value = noteToEdit.keywords;
+                noteKeywordsInput.value = noteToEdit.keywords || '';
                 notePhoneNumberInput.value = noteToEdit.phoneNumber || ''; // Populate phone number
                 editingNoteId = idToEdit; // Set editing mode
                 updateButtonStates(); // Change button text to "Update Note"
@@ -1074,63 +1082,346 @@
                     });
                 });
 
-                // Drag-and-drop handlers (disabled during search)
+                // Animated drag-and-drop via pointer events (disabled during search)
                 if (!searchQuery) {
-                    const cards = notesListDiv.querySelectorAll('.note-card');
-                    const handles = notesListDiv.querySelectorAll('.drag-handle');
-                    let dragSourceId = null;
-                    let dragSourceGroup = null;
-
-                    // Drag start/end on handles only
-                    handles.forEach(handle => {
-                        handle.setAttribute('draggable', 'true');
-                        handle.addEventListener('dragstart', (ev) => {
-                            const noteId = handle.dataset.noteId;
-                            const group = handle.dataset.group;
-                            dragSourceId = noteId;
-                            dragSourceGroup = group;
-                            const card = handle.closest('.note-card');
-                            if (card) card.classList.add('dragging');
-                            ev.dataTransfer.setData('text/plain', noteId);
-                            ev.dataTransfer.effectAllowed = 'move';
-                        });
-                        handle.addEventListener('dragend', () => {
-                            const card = handle.closest('.note-card');
-                            if (card) card.classList.remove('dragging');
-                            cards.forEach(c => c.classList.remove('drag-over'));
-                        });
-                    });
-
-                    // Drop targets are the cards
-                    cards.forEach(card => {
-                        card.addEventListener('dragover', (ev) => {
-                            if (!dragSourceGroup) return;
-                            const target = ev.currentTarget;
-                            if (target.dataset.group !== dragSourceGroup) return; // block cross-group
-                            ev.preventDefault(); // allow drop
-                            ev.dataTransfer.dropEffect = 'move';
-                            target.classList.add('drag-over');
-                        });
-                        card.addEventListener('dragleave', (ev) => {
-                            ev.currentTarget.classList.remove('drag-over');
-                        });
-                        card.addEventListener('drop', (ev) => {
-                            ev.preventDefault();
-                            const target = ev.currentTarget;
-                            target.classList.remove('drag-over');
-                            const targetId = target.dataset.noteId;
-                            if (!dragSourceId || dragSourceId === targetId) return;
-                            if (target.dataset.group !== dragSourceGroup) {
-                                showMessage('Can\'t move between pinned and unpinned.', 'info');
-                                return;
-                            }
-                            moveWithinGroup(dragSourceGroup, dragSourceId, targetId);
-                            renderNotes();
-                        });
-                    });
+                    initAnimatedSortable(notesListDiv);
                 }
             }
         };
+
+        // Animated Sortable (within pinned/unpinned groups) using FLIP
+    function initAnimatedSortable(container) {
+            const cards = Array.from(container.querySelectorAll('.note-card'));
+            const handles = Array.from(container.querySelectorAll('.drag-handle'));
+            if (!cards.length || !handles.length) return;
+
+            // State
+            let dragging = null; // { id, group, startY, offsetY, mirrorEl, height, width, placeholderEl, cardEl, handleEl, cardTop, cardLeft, siblingsEls, lastIndex }
+            let rafId = null;
+            let moveScheduled = false;
+            let autoScrollId = null;
+            const EDGE_SIZE = 56; // px from top/bottom to start autoscroll
+            const MAX_SCROLL_SPEED = 22; // px per frame at 60fps (~1320px/s)
+
+            // Utility: current ordered list per group inside container
+            const getGroupCards = (group) => Array.from(container.querySelectorAll('.note-card')).filter(el => el.dataset.group === group);
+
+            // Build mirror from a card node
+            const createMirror = (card) => {
+                const rect = card.getBoundingClientRect();
+                const mirror = card.cloneNode(true);
+                mirror.classList.add('drag-mirror');
+                mirror.style.width = rect.width + 'px';
+                mirror.style.height = rect.height + 'px';
+                mirror.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) scale(1.02)`;
+                document.body.appendChild(mirror);
+                return mirror;
+            };
+
+            const createPlaceholder = (card, group) => {
+                const ph = document.createElement('div');
+                ph.className = card.className + ' note-placeholder';
+                ph.style.height = card.getBoundingClientRect().height + 'px';
+                ph.dataset.group = group;
+                // Minimize content for perf
+                ph.innerHTML = '';
+                return ph;
+            };
+
+            const indexOfCard = (el, arr) => arr.findIndex(n => n === el);
+            const measureRects = (elements) => elements.map(el => ({ el, rect: el.getBoundingClientRect() }));
+
+            const computeIndexByCenter = (centerY, siblingsEls) => {
+                let idx = 0;
+                for (let i = 0; i < siblingsEls.length; i++) {
+                    const r = siblingsEls[i].getBoundingClientRect();
+                    const c = r.top + r.height / 2;
+                    if (centerY > c) idx = i + 1; else break;
+                }
+                return idx; // insertion position before siblingsEls[idx]
+            };
+
+            const performDragUpdate = (fallbackClientY = null) => {
+                if (!dragging) return;
+                const clientY = dragging.latestClientY ?? fallbackClientY;
+                if (clientY == null) return;
+                dragging.offsetY = clientY - dragging.startY;
+                const mirrorY = dragging.cardTop + dragging.offsetY;
+                dragging.mirrorEl.style.transform = `translate3d(${dragging.cardLeft}px, ${mirrorY}px, 0) scale(1.02)`;
+
+                const siblings = dragging.siblingsEls; // stable set: excludes card and placeholder
+                if (!siblings.length) return;
+
+                const mirrorCenter = mirrorY + dragging.height / 2;
+                const newIndex = computeIndexByCenter(mirrorCenter, siblings);
+
+                if (newIndex === dragging.lastIndex) return; // no effective change
+
+                const parent = dragging.placeholderEl.parentNode;
+                if (!parent) return;
+
+                // FLIP: measure before
+                const beforeRects = measureRects(siblings);
+
+                // Insert placeholder at newIndex within group bounds
+                const ref = siblings[newIndex] || null;
+                if (ref) {
+                    parent.insertBefore(dragging.placeholderEl, ref);
+                } else {
+                    // After last in group: place after the last sibling, not at parent end
+                    const last = siblings[siblings.length - 1];
+                    parent.insertBefore(dragging.placeholderEl, last ? last.nextSibling : null);
+                }
+
+                // FLIP: animate siblings to new spots
+                flipAnimateToNewPositions(siblings, beforeRects);
+
+                dragging.lastIndex = newIndex;
+            };
+
+            const onPointerMove = (e) => {
+                if (!dragging) return;
+                dragging.latestClientY = e.clientY;
+                if (moveScheduled) return;
+                moveScheduled = true;
+                rafId = requestAnimationFrame(() => {
+                    moveScheduled = false;
+                    performDragUpdate(e.clientY);
+                });
+            };
+
+            const autoScrollStep = () => {
+                if (!dragging) return;
+                const cont = appContainer || container; // prefer appContainer if defined
+                const rect = cont.getBoundingClientRect();
+                const y = dragging.latestClientY;
+                const mirrorRect = dragging.mirrorEl.getBoundingClientRect();
+                const phRect = dragging.placeholderEl.getBoundingClientRect();
+                let scrolled = false;
+                // Container-edge proximity
+                const nearTop =
+                    (y != null && y < rect.top + EDGE_SIZE) ||
+                    (mirrorRect.top < rect.top + EDGE_SIZE) ||
+                    (phRect.top < rect.top + EDGE_SIZE);
+                const nearBottom =
+                    (y != null && y > rect.bottom - EDGE_SIZE) ||
+                    (mirrorRect.bottom > rect.bottom - EDGE_SIZE) ||
+                    (phRect.bottom > rect.bottom - EDGE_SIZE);
+                // Viewport-edge proximity (fallback to window scroll)
+                const vpNearTop =
+                    (y != null && y < EDGE_SIZE) ||
+                    (mirrorRect.top < EDGE_SIZE) ||
+                    (phRect.top < EDGE_SIZE);
+                const vpNearBottom =
+                    (y != null && y > (window.innerHeight - EDGE_SIZE)) ||
+                    (mirrorRect.bottom > (window.innerHeight - EDGE_SIZE)) ||
+                    (phRect.bottom > (window.innerHeight - EDGE_SIZE));
+
+                const canScrollUp = cont.scrollHeight > cont.clientHeight && cont.scrollTop > 0;
+                const canScrollDown = cont.scrollHeight > cont.clientHeight && cont.scrollTop < (cont.scrollHeight - cont.clientHeight);
+                const scroller = document.scrollingElement || document.documentElement;
+
+                if (nearTop || vpNearTop) {
+                    const baseline = nearTop ? (rect.top + EDGE_SIZE) : EDGE_SIZE;
+                    const refY = y ?? baseline - 1;
+                    const dist = Math.max(0, baseline - refY);
+                    const t = Math.min(1, dist / EDGE_SIZE);
+                    const speed = Math.ceil(MAX_SCROLL_SPEED * t * t);
+                    if (canScrollUp) {
+                        const before = cont.scrollTop;
+                        cont.scrollTop = Math.max(0, cont.scrollTop - speed);
+                        scrolled = scrolled || (cont.scrollTop !== before);
+                    } else {
+                        const before = scroller.scrollTop;
+                        scroller.scrollTop = Math.max(0, scroller.scrollTop - speed);
+                        scrolled = scrolled || (scroller.scrollTop !== before);
+                    }
+                } else if (nearBottom || vpNearBottom) {
+                    const baseline = nearBottom ? (rect.bottom - EDGE_SIZE) : (window.innerHeight - EDGE_SIZE);
+                    const refY = y ?? baseline + 1;
+                    const dist = Math.max(0, refY - baseline);
+                    const t = Math.min(1, dist / EDGE_SIZE);
+                    const speed = Math.ceil(MAX_SCROLL_SPEED * t * t);
+                    if (canScrollDown) {
+                        const maxScroll = cont.scrollHeight - cont.clientHeight;
+                        const before = cont.scrollTop;
+                        cont.scrollTop = Math.min(maxScroll, cont.scrollTop + speed);
+                        scrolled = scrolled || (cont.scrollTop !== before);
+                    } else {
+                        const docMax = scroller.scrollHeight - window.innerHeight;
+                        const before = scroller.scrollTop;
+                        scroller.scrollTop = Math.min(docMax, scroller.scrollTop + speed);
+                        scrolled = scrolled || (scroller.scrollTop !== before);
+                    }
+                }
+                if (scrolled) {
+                    // After scrolling, update layout even if pointer didn't move
+                    performDragUpdate();
+                }
+                autoScrollId = requestAnimationFrame(autoScrollStep);
+            };
+
+            const flipAnimateToNewPositions = (elements, old) => {
+                // old: array of {el, rect} before DOM change
+                const newRects = elements.map(el => ({ el, rect: el.getBoundingClientRect() }));
+                newRects.forEach(({ el, rect }) => {
+                    const oldMatch = old.find(o => o.el === el);
+                    if (!oldMatch) return;
+                    const dx = oldMatch.rect.left - rect.left;
+                    const dy = oldMatch.rect.top - rect.top;
+                    if (dx || dy) {
+                        el.style.transform = `translate(${dx}px, ${dy}px)`;
+                        el.style.transition = 'transform 0s';
+                        requestAnimationFrame(() => {
+                            el.style.transition = 'transform 160ms ease';
+                            el.style.transform = '';
+                        });
+                    }
+                });
+            };
+
+            const onPointerUp = () => {
+                if (!dragging) return;
+                // Place the original card where placeholder is, then remove placeholder
+                const placeholder = dragging.placeholderEl;
+                const card = dragging.cardEl;
+                const group = dragging.group;
+                const parent = placeholder.parentNode;
+
+                if (parent) parent.insertBefore(card, placeholder);
+
+                // FLIP for the dragged card glide-in: measure final rect in normal flow
+                const mirrorRect = dragging.mirrorEl.getBoundingClientRect();
+                // Restore original card styles first so layout is correct
+                card.style.position = '';
+                card.style.pointerEvents = '';
+                card.style.width = '';
+                card.style.height = '';
+                card.style.left = '';
+                card.style.top = '';
+                // Force reflow before measuring
+                void card.offsetHeight;
+                const afterRect = card.getBoundingClientRect();
+                const dx = mirrorRect.left - afterRect.left;
+                const dy = mirrorRect.top - afterRect.top;
+                card.style.transform = `translate(${dx}px, ${dy}px)`;
+                card.style.transition = 'transform 0s';
+                requestAnimationFrame(() => {
+                    card.style.transition = 'transform 220ms ease';
+                    card.style.transform = '';
+                });
+
+                // Compute new order indices within this group and persist
+                const idsInGroup = getGroupCards(group)
+                    .map(n => n.dataset.noteId)
+                    .filter(Boolean); // exclude placeholder (no id)
+                const fromId = dragging.id;
+                const toIndex = idsInGroup.indexOf(fromId);
+                if (toIndex !== -1) {
+                    // Map DOM order back to notes.order for this group
+                    const groupNotes = sortGroupForRender(getGroupNotes(group));
+                    // Rebuild group order matching idsInGroup
+                    const ordered = [];
+                    idsInGroup.forEach(id => {
+                        const n = groupNotes.find(x => x.id === id);
+                        if (n) ordered.push(n);
+                    });
+                    ordered.forEach((n, i) => { n.order = i; });
+                    saveNotesToLocalStorage();
+                }
+
+                // Cleanup mirror and placeholder
+                if (dragging.mirrorEl && dragging.mirrorEl.parentNode) dragging.mirrorEl.parentNode.removeChild(dragging.mirrorEl);
+                if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+
+                // Original card styles already restored prior to measuring
+
+                // Remove temp styles from siblings
+                (dragging.siblingsEls || getGroupCards(group)).forEach(el => { el.style.transition = ''; el.style.transform = ''; });
+
+                // End
+                document.removeEventListener('pointermove', onPointerMove);
+                document.removeEventListener('pointerup', onPointerUp, true);
+                dragging.handleEl.classList.remove('dragging');
+                if (autoScrollId) cancelAnimationFrame(autoScrollId);
+                dragging = null;
+            };
+
+            // Attach handlers to handles
+            handles.forEach(handle => {
+                handle.addEventListener('pointerdown', (e) => {
+                    const id = handle.dataset.noteId;
+                    const group = handle.dataset.group;
+                    if (!id || !group) return;
+                    const card = handle.closest('.note-card');
+                    if (!card) return;
+                    if (e.button !== 0 && e.pointerType === 'mouse') return; // left button only for mouse
+
+                    const rect = card.getBoundingClientRect();
+                    const mirror = createMirror(card);
+                    const placeholder = createPlaceholder(card, group);
+
+                    // Insert placeholder in place of card
+                    const parent = card.parentNode;
+                    parent.insertBefore(placeholder, card);
+
+                    // Temporarily remove the original card from flow to avoid double height
+                    card.style.position = 'absolute';
+                    card.style.pointerEvents = 'none';
+                    card.style.width = rect.width + 'px';
+                    card.style.height = rect.height + 'px';
+                    card.style.left = '-99999px'; // move off-screen while dragging mirror
+
+                    handle.classList.add('dragging');
+
+                    // Establish stable siblings set (exclude dragged card and placeholder)
+                    const siblingsEls = getGroupCards(group).filter(el => el !== card && el !== placeholder);
+
+                    // Compute initial placeholder index by mirror center
+                    const initialCenter = rect.top + rect.height / 2;
+                    const initialIndex = computeIndexByCenter(initialCenter, siblingsEls);
+                    if (siblingsEls.length > 0) {
+                        const refInit = siblingsEls[initialIndex] || null;
+                        if (refInit) {
+                            parent.insertBefore(placeholder, refInit);
+                        } else {
+                            // After last in group but before first of next group
+                            const last = siblingsEls[siblingsEls.length - 1];
+                            parent.insertBefore(placeholder, last ? last.nextSibling : null);
+                        }
+                    }
+
+                    dragging = {
+                        id,
+                        group,
+                        cardEl: card,
+                        handleEl: handle,
+                        startY: e.clientY,
+                        offsetY: 0,
+                        mirrorEl: mirror,
+                        placeholderEl: placeholder,
+                        height: rect.height,
+                        width: rect.width,
+                        cardTop: rect.top,
+                        cardLeft: rect.left,
+                        siblingsEls,
+                        lastIndex: initialIndex,
+                        latestClientY: e.clientY
+                    };
+
+                    try { handle.setPointerCapture(e.pointerId); } catch {}
+                    document.addEventListener('pointermove', onPointerMove);
+                    document.addEventListener('pointerup', onPointerUp, true);
+
+                    // Start auto-scroll loop
+                    if (autoScrollId) cancelAnimationFrame(autoScrollId);
+                    autoScrollId = requestAnimationFrame(autoScrollStep);
+
+                    // Prevent text selection
+                    e.preventDefault();
+                });
+            });
+        }
 
         // Dark Mode Functions
         const setDarkIcon = (isDark) => {
@@ -1190,13 +1481,47 @@
             // Initialize dictation button state
             try { setDictateBtnState(); } catch {}
 
-            // Apply saved app width if any
-            try {
+            // Apply saved app width with viewport clamp and restore preferred px when possible
+            const clampAppWidth = () => {
                 const savedWidth = localStorage.getItem('notes_app_width');
-                if (savedWidth) {
-                    appContainer.style.width = savedWidth;
+                const preferredPxStr = localStorage.getItem('notes_app_width_px');
+                const preferredPx = preferredPxStr ? parseFloat(preferredPxStr) : null;
+                const bodyStyles = window.getComputedStyle(document.body);
+                const padLeft = parseFloat(bodyStyles.paddingLeft) || 0;
+                const padRight = parseFloat(bodyStyles.paddingRight) || 0;
+                const available = Math.max(320, Math.floor(window.innerWidth - (padLeft + padRight)));
+
+                const setWidth = (val) => {
+                    if (appContainer.style.width !== val) {
+                        appContainer.style.width = val;
+                        localStorage.setItem('notes_app_width', val);
+                    }
+                };
+
+                // If the user chose full width, honor it regardless of preferred px
+                if (savedWidth === '100%') {
+                    setWidth('100%');
+                    return;
                 }
-            } catch {}
+
+                if (preferredPx && !Number.isNaN(preferredPx)) {
+                    if (preferredPx >= available - 1) {
+                        setWidth('100%');
+                    } else {
+                        setWidth(`${preferredPx}px`);
+                    }
+                    return;
+                }
+
+                if (savedWidth) {
+                    if (savedWidth.endsWith('px')) {
+                        const px = parseFloat(savedWidth) || 0;
+                        if (px >= available - 1) setWidth('100%');
+                        else setWidth(`${px}px`);
+                    }
+                }
+            };
+            try { clampAppWidth(); } catch {}
 
             // Wire up resize handle
             const resizeHandle = appContainer.querySelector('.resize-handle-x');
@@ -1226,7 +1551,12 @@
                     dragging = false;
                     document.body.classList.remove('resizing');
                     // Persist width
-                    localStorage.setItem('notes_app_width', appContainer.style.width);
+                    try {
+                        localStorage.setItem('notes_app_width', appContainer.style.width);
+                        // Always remember a preferred pixel width, even if currently clamped to 100%
+                        const rectNow = appContainer.getBoundingClientRect();
+                        localStorage.setItem('notes_app_width_px', String(Math.round(rectNow.width)));
+                    } catch {}
                     window.removeEventListener('mousemove', onMouseMove);
                     window.removeEventListener('mouseup', onMouseUp);
                 };
@@ -1242,6 +1572,11 @@
                     window.addEventListener('mouseup', onMouseUp);
                 });
             }
+
+            // Re-clamp width on window resize so it never exceeds viewport
+            window.addEventListener('resize', () => {
+                try { clampAppWidth(); } catch {}
+            });
         };
     </script>
 </body>
